@@ -109,7 +109,7 @@ st.markdown("""
 st.markdown('<h1 style="text-align: center; color: #2c3e50;">🏥 HealthGuard AI</h1>', unsafe_allow_html=True)
 st.markdown('<h3 style="text-align: center; color: #34495e;">Advanced Health Risk Assessment Powered by Machine Learning</h3>', unsafe_allow_html=True)
 
-st.image("/Users/yashkailasdeshmane/Desktop/Personalized-healthcare-project/images/premium_photo-1663054397533-2a3fb0cab5de.jpeg", use_column_width=True)
+st.image("https://github.com/yashkd-fresher/Personalized-Health-Risk-Assessment/blob/main/premium_photo-1663054397533-2a3fb0cab5de.jpeg", use_column_width=True)
 
 # Key Metrics
 col1, col2, col3 = st.columns(3)

@@ -7,7 +7,7 @@ import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from imblearn.combine import SMOTETomek
 from sklearn.ensemble import ExtraTreesClassifier
 from xgboost import XGBClassifier
@@ -31,9 +31,9 @@ def load_data():
 
 data = load_data()
 
-# Train model with improvements
+# Train models and compare
 @st.cache_resource
-def train_model():
+def train_models():
     X = data.drop('Outcome', axis=1)
     y = data['Outcome']
 
@@ -50,21 +50,36 @@ def train_model():
 
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y_resampled, test_size=0.2, random_state=42)
 
-    model = XGBClassifier(random_state=42)
-    model.fit(X_train, y_train)
+    models = {
+        'XGBoost': XGBClassifier(random_state=42),
+        'RandomForest': RandomForestClassifier(random_state=42)
+    }
 
-    y_pred = model.predict(X_test)
-    model_accuracy = accuracy_score(y_test, y_pred)
+    results = {}
+
+    for model_name, model in models.items():
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+
+        results[model_name] = {
+            'model': model,
+            'accuracy': accuracy_score(y_test, y_pred),
+            'precision': precision_score(y_test, y_pred),
+            'recall': recall_score(y_test, y_pred),
+            'f1_score': f1_score(y_test, y_pred)
+        }
+
+    best_model_name = max(results, key=lambda k: results[k]['accuracy'])
+    best_model = results[best_model_name]['model']
 
     feature_importance = pd.DataFrame({
         'Feature': selected_features,
-        'Importance': model.feature_importances_
+        'Importance': best_model.feature_importances_
     }).sort_values(by='Importance', ascending=False)
 
-    return model, scaler, model_accuracy, selected_features, feature_importance
+    return best_model, scaler, results, selected_features, feature_importance
 
-# Train model and get results
-model, scaler, model_accuracy, selected_features, feature_importance = train_model()
+model, scaler, model_results, selected_features, feature_importance = train_models()
 
 # Custom CSS
 st.markdown("""
@@ -87,13 +102,6 @@ st.markdown("""
             margin: 20px 0;
             text-align: center;
         }
-        .health-tips {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-            padding: 20px;
-            border-radius: 15px;
-            margin: 20px 0;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -101,16 +109,15 @@ st.markdown("""
 st.markdown('<h1 style="text-align: center; color: #2c3e50;">🏥 HealthGuard AI</h1>', unsafe_allow_html=True)
 st.markdown('<h3 style="text-align: center; color: #34495e;">Advanced Health Risk Assessment Powered by Machine Learning</h3>', unsafe_allow_html=True)
 
-# Display Image Below Header
-st.image("https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.freepik.com%2Ffree-photo%2Fside-view-smiley-doctor-patient_34728735.htm&psig=AOvVaw1Ptb8maqlBuuE7XLRdi0Zm&ust=1743050085826000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCIilp4L2powDFQAAAAAdAAAAABAJ", use_column_width=True)
+st.image("/premium_photo-1663054397533-2a3fb0cab5de.jpeg", use_column_width=True)
 
-# Key metrics
+# Key Metrics
 col1, col2, col3 = st.columns(3)
 with col1:
     st.markdown(f"""
         <div class="metric-card">
-            <h3 style="color: #3498db;">Model Accuracy</h3>
-            <h2>{model_accuracy:.1%}</h2>
+            <h3 style="color: #3498db;">Best Model</h3>
+            <h2>{max(model_results, key=lambda k: model_results[k]['accuracy'])}</h2>
         </div>
     """, unsafe_allow_html=True)
 with col2:
@@ -128,7 +135,17 @@ with col3:
         </div>
     """, unsafe_allow_html=True)
 
-# Sidebar inputs
+# Correlation Heatmap
+st.markdown("### 🔍 Feature Correlation Heatmap")
+fig, ax = plt.subplots(figsize=(10, 8))
+sns.heatmap(data.corr(), annot=True, fmt='.2f', cmap='coolwarm', ax=ax)
+st.pyplot(fig)
+
+# Feature Importance Chart
+st.markdown("### 📊 Feature Importance")
+st.bar_chart(feature_importance.set_index('Feature'))
+
+# Sidebar Inputs
 st.sidebar.markdown("""
     <div style='text-align: center; padding: 20px 0;'>
         <h2 style='color: #3498db;'>🧑‍⚕️ Your Health Profile</h2>
@@ -148,19 +165,18 @@ for feature in selected_features:
 user_input_df = pd.DataFrame([user_input])
 user_input_scaled = scaler.transform(user_input_df)
 
-# Analyze Button
-st.markdown('<div style="text-align: center;">', unsafe_allow_html=True)
-assess_button = st.button("🚀 Analyze Health Risk")
-st.markdown('</div>', unsafe_allow_html=True)
-
-if assess_button:
+if st.button("🚀 Analyze Health Risk"):
     prediction = model.predict(user_input_scaled)[0]
-    prediction_proba = model.predict_proba(user_input_scaled)[0][1]
     risk = "🔴 High Risk" if prediction == 1 else "🟢 Low Risk"
 
     st.markdown(f"""
         <div class="prediction-card">
-            <h2 style='color: {"#e74c3c" if prediction == 1 else "#2ecc71"}; font-size: 2.5em;'>{risk}</h2>
-            <p style='font-size: 1.2em; color: #666;'>Confidence Score: {prediction_proba:.1%}</p>
+            <h2 style='color: {'#e74c3c' if prediction == 1 else '#2ecc71'}; font-size: 2.5em;'>{risk}</h2>
         </div>
     """, unsafe_allow_html=True)
+
+    if prediction == 1:
+        st.markdown("### 🛡️ Preventive Measures")
+        st.write("- Maintain a balanced diet and regular exercise.")
+        st.write("- Monitor blood sugar levels regularly.")
+        st.write("- Consult a healthcare professional for personalized advice.")

@@ -9,3 +9,5 @@ seaborn
 plotly
 joblib
 scipy
+scikit-learn==1.2.2
+imblearn==0.10.1
